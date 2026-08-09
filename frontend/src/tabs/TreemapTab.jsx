@@ -18,22 +18,32 @@ export default function TreemapTab({ id }) {
     return () => ro.disconnect();
   }, []);
 
-  const maxChange = useMemo(() => {
-    if (!data?.treemap) return 1;
-    let m = 1;
+  // A changelog-type file changes on every release and would pin a linear
+  // color scale's max, washing out every code file. Clamp the domain to the
+  // 95th percentile and use a sqrt scale so mid-range churn stays visible.
+  const changeStats = useMemo(() => {
+    if (!data?.treemap) return { cap: 1, hot: 1 };
+    const values = [];
     const walk = (n) => {
       if (n.children) n.children.forEach(walk);
-      else m = Math.max(m, n.change_frequency || 0);
+      else values.push(n.change_frequency || 0);
     };
     walk(data.treemap);
-    return m;
+    const nonzero = values.filter((v) => v > 0).sort((a, b) => a - b);
+    if (!nonzero.length) return { cap: 1, hot: 1 };
+    const cap = Math.max(1, d3.quantile(nonzero, 0.95) ?? nonzero[nonzero.length - 1]);
+    return { cap, hot: cap * 0.45 };
   }, [data]);
 
   useEffect(() => {
     if (!data?.treemap || !svgRef.current) return;
     const height = 560;
     // change-frequency overlay: cool (rarely changed) -> hot red (churned).
-    const heat = d3.scaleSequential(d3.interpolateRgb("#dbe4f5", "#dc2626")).domain([0, maxChange]);
+    // sqrt scale + 95th-percentile clamp keeps single outliers from dominating.
+    const heat = d3
+      .scaleSequentialSqrt(d3.interpolateRgb("#dbe4f5", "#dc2626"))
+      .domain([0, changeStats.cap])
+      .clamp(true);
 
     const rootData = d3.hierarchy(data.treemap, (d) => d.children).sum((d) => (d.children ? 0 : d.size || 0));
     if (!rootData.value) return;
@@ -78,7 +88,7 @@ export default function TreemapTab({ id }) {
       .attr("x", 5)
       .attr("y", 14)
       .attr("font-size", 11)
-      .attr("fill", (d) => ((d.data.change_frequency || 0) > maxChange * 0.55 ? "#fff" : "#334155"))
+      .attr("fill", (d) => ((d.data.change_frequency || 0) >= changeStats.hot ? "#fff" : "#334155"))
       .text((d) => d.data.name)
       .each(function (d) {
         // Trim label to fit cell width.
@@ -90,7 +100,7 @@ export default function TreemapTab({ id }) {
           t.text(txt + "…");
         }
       });
-  }, [data, width, maxChange]);
+  }, [data, width, changeStats]);
 
   if (loading) return <Spinner />;
   if (error) return <Empty title="Couldn’t load structure" hint={error} />;
