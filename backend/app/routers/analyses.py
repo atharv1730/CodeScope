@@ -10,8 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import Analysis, AnalysisStatus, FileMetric
+from app.models import (
+    Analysis,
+    AnalysisStatus,
+    CommitActivity,
+    Contributor,
+    FileConnection,
+    FileMetric,
+)
 from app.reporting import build_complexity_payload, build_structure_payload
+from app.reporting_git import build_contributors_payload, build_hotspots_payload
 from app.schemas import AnalysisSummary, AnalyzeRequest, AnalyzeResponse, StatusResponse
 from app.tasks import run_analysis
 from app.utils import InvalidRepoURL, progress_for, validate_github_url
@@ -110,3 +118,24 @@ def get_structure(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict
 def get_complexity(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
     _get_or_404(db, analysis_id)
     return build_complexity_payload(_file_metrics(db, analysis_id))
+
+
+@router.get("/analyses/{analysis_id}/contributors")
+def get_contributors(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    _get_or_404(db, analysis_id)
+    contributors = db.scalars(
+        select(Contributor).where(Contributor.analysis_id == analysis_id)
+    ).all()
+    activity = db.scalars(
+        select(CommitActivity).where(CommitActivity.analysis_id == analysis_id)
+    ).all()
+    return build_contributors_payload(contributors, activity, _file_metrics(db, analysis_id))
+
+
+@router.get("/analyses/{analysis_id}/hotspots")
+def get_hotspots(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    _get_or_404(db, analysis_id)
+    connections = db.scalars(
+        select(FileConnection).where(FileConnection.analysis_id == analysis_id)
+    ).all()
+    return build_hotspots_payload(_file_metrics(db, analysis_id), connections)

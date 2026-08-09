@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 from app.analysis.clone import CloneError, cleanup_clone, clone_repo
 from app.analysis.complexity import analyze_complexity
+from app.analysis.git import analyze_git
 from app.analysis.structure import analyze_structure
 from app.celery_app import celery_app
 from app.database import SessionLocal
@@ -59,8 +60,12 @@ def run_analysis(self, analysis_id: str) -> str:
             file_count = analyze_structure(db, analysis, clone_path)
         logger.info("Analysis %s: recorded %d files", analysis_id, file_count)
 
-        # --- Git pass (Day 3) plugs in here ---
-        # analyze_git(...)  -> AnalysisStatus.analyzing_git
+        # --- Git history pass (Day 3) ---
+        _set_status(analysis_id, AnalysisStatus.analyzing_git)
+        with SessionLocal() as db:
+            analysis = db.get(Analysis, analysis_id)
+            git_stats = analyze_git(db, analysis, clone_path)
+        logger.info("Analysis %s: git %s", analysis_id, git_stats)
 
         # --- Complexity pass (Day 2) ---
         _set_status(analysis_id, AnalysisStatus.analyzing_complexity)

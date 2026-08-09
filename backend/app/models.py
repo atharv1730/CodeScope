@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum as SAEnum,
     Float,
@@ -82,6 +83,9 @@ class Analysis(Base):
     file_connections: Mapped[list["FileConnection"]] = relationship(
         back_populates="analysis", cascade="all, delete-orphan"
     )
+    commit_activity: Mapped[list["CommitActivity"]] = relationship(
+        back_populates="analysis", cascade="all, delete-orphan"
+    )
 
 
 class FileMetric(Base):
@@ -101,6 +105,8 @@ class FileMetric(Base):
     change_frequency: Mapped[int] = mapped_column(Integer, default=0)
     last_changed: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     top_contributor: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Distinct contributors who have touched this file. 1 == single-owner risk.
+    bus_factor: Mapped[int] = mapped_column(Integer, default=0)
 
     analysis: Mapped["Analysis"] = relationship(back_populates="file_metrics")
 
@@ -151,5 +157,24 @@ class FileConnection(Base):
     target_file: Mapped[str] = mapped_column(String(2048), nullable=False)
     # "import" or "co_change"
     connection_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    # For co_change: how many commits changed both files. For import: 1.
+    weight: Mapped[int] = mapped_column(Integer, default=1)
 
     analysis: Mapped["Analysis"] = relationship(back_populates="file_connections")
+
+
+class CommitActivity(Base):
+    """Weekly commit counts per contributor, for activity timeline charts."""
+
+    __tablename__ = "commit_activity"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    analysis_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("analyses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)  # Monday of the week
+    author_email: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    author_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    commit_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    analysis: Mapped["Analysis"] = relationship(back_populates="commit_activity")
