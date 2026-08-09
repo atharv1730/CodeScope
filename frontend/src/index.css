@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-canvas text-ink-900 antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-hairline rounded-xl2 shadow-card;
+  }
+  .stat-label {
+    @apply text-xs font-medium uppercase tracking-wide text-ink-500;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .th {
+    @apply text-left text-xs font-semibold uppercase tracking-wide text-ink-500 px-3 py-2;
+  }
+  .td {
+    @apply px-3 py-2 text-sm text-ink-700 border-t border-hairline;
+  }
+  .tabbtn {
+    @apply px-3.5 py-2 text-sm font-medium rounded-lg text-ink-500 hover:text-ink-900 hover:bg-brand-50 transition-colors;
+  }
+  .tabbtn-active {
+    @apply bg-brand-50 text-brand-600;
+  }
+}
+
+/* Thin, tasteful scrollbars */
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d5d9e0;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
