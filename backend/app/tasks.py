@@ -11,7 +11,9 @@ from datetime import datetime, timezone
 
 from app.analysis.clone import CloneError, cleanup_clone, clone_repo
 from app.analysis.complexity import analyze_complexity
+from app.analysis.dependencies import analyze_dependencies
 from app.analysis.git import analyze_git
+from app.analysis.imports import analyze_imports
 from app.analysis.structure import analyze_structure
 from app.celery_app import celery_app
 from app.database import SessionLocal
@@ -74,7 +76,18 @@ def run_analysis(self, analysis_id: str) -> str:
             scored = analyze_complexity(db, analysis, clone_path)
         logger.info("Analysis %s: scored %d Python files", analysis_id, scored)
 
-        # --- Dependencies pass (Day 4) plugs in here ---
+        # --- Import graph pass (Day 4) ---
+        with SessionLocal() as db:
+            analysis = db.get(Analysis, analysis_id)
+            graph_stats = analyze_imports(db, analysis, clone_path)
+        logger.info("Analysis %s: imports %s", analysis_id, graph_stats)
+
+        # --- Dependencies pass (Day 4) ---
+        _set_status(analysis_id, AnalysisStatus.analyzing_dependencies)
+        with SessionLocal() as db:
+            analysis = db.get(Analysis, analysis_id)
+            dep_stats = analyze_dependencies(db, analysis, clone_path)
+        logger.info("Analysis %s: dependencies %s", analysis_id, dep_stats)
 
         _set_status(analysis_id, AnalysisStatus.complete)
         logger.info("Analysis %s complete", analysis_id)

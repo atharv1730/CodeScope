@@ -15,11 +15,13 @@ from app.models import (
     AnalysisStatus,
     CommitActivity,
     Contributor,
+    Dependency,
     FileConnection,
     FileMetric,
 )
 from app.reporting import build_complexity_payload, build_structure_payload
 from app.reporting_git import build_contributors_payload, build_hotspots_payload
+from app.reporting_graph import build_dependencies_payload, build_graph_payload
 from app.schemas import AnalysisSummary, AnalyzeRequest, AnalyzeResponse, StatusResponse
 from app.tasks import run_analysis
 from app.utils import InvalidRepoURL, progress_for, validate_github_url
@@ -139,3 +141,24 @@ def get_hotspots(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
         select(FileConnection).where(FileConnection.analysis_id == analysis_id)
     ).all()
     return build_hotspots_payload(_file_metrics(db, analysis_id), connections)
+
+
+@router.get("/analyses/{analysis_id}/dependencies")
+def get_dependencies(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    _get_or_404(db, analysis_id)
+    deps = db.scalars(
+        select(Dependency).where(Dependency.analysis_id == analysis_id)
+    ).all()
+    return build_dependencies_payload(deps)
+
+
+@router.get("/analyses/{analysis_id}/graph")
+def get_graph(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    _get_or_404(db, analysis_id)
+    connections = db.scalars(
+        select(FileConnection).where(
+            FileConnection.analysis_id == analysis_id,
+            FileConnection.connection_type == "import",
+        )
+    ).all()
+    return build_graph_payload(_file_metrics(db, analysis_id), connections)

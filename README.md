@@ -66,15 +66,21 @@ curl http://localhost:8000/analyses/<id>/status
 
 ## API endpoints
 
-| Method | Path                              | Purpose                            |
-| ------ | --------------------------------- | ---------------------------------- |
-| POST   | `/analyze`                        | Submit a repo URL (returns 202)    |
-| GET    | `/analyses/{id}`                  | Full analysis record + summary     |
-| GET    | `/analyses/{id}/status`           | Lightweight status for polling     |
-| GET    | `/health`                         | DB/Redis health, queue, workers    |
+| Method | Path                              | Purpose                              |
+| ------ | --------------------------------- | ------------------------------------ |
+| POST   | `/analyze`                        | Submit a repo URL (returns 202)      |
+| GET    | `/analyses/{id}`                  | Full analysis record + summary       |
+| GET    | `/analyses/{id}/status`           | Lightweight status for polling       |
+| GET    | `/analyses/{id}/structure`        | Language breakdown + treemap         |
+| GET    | `/analyses/{id}/complexity`       | Per-file complexity + heatmap        |
+| GET    | `/analyses/{id}/contributors`     | Contributor stats, timeline, bus factor |
+| GET    | `/analyses/{id}/hotspots`         | Most-changed, churn, co-change       |
+| GET    | `/analyses/{id}/dependencies`     | Versions + OSV vulnerabilities       |
+| GET    | `/analyses/{id}/graph`            | Import graph nodes + edges           |
+| GET    | `/health`                         | DB/Redis health, queue, workers      |
 
-Planned (later days): `/structure`, `/complexity`, `/contributors`,
-`/hotspots`, `/dependencies`, `/graph`.
+All analysis endpoints are implemented (Days 2–4). The React dashboard
+consumes these on Days 5–6.
 
 ## Local dev without Docker
 
