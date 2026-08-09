@@ -14,6 +14,7 @@ from radon.complexity import cc_visit
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.analysis.filereader import _too_large_for_radon
 from app.models import Analysis, FileMetric
 
 
@@ -23,6 +24,9 @@ def _analyze_python_file(abs_path: str) -> tuple[float, int] | None:
         with open(abs_path, "r", encoding="utf-8", errors="replace") as fh:
             source = fh.read()
     except OSError:
+        return None
+    # Skip files large enough to hang radon; complexity stays null for them.
+    if _too_large_for_radon(source):
         return None
     try:
         blocks = cc_visit(source)

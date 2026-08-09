@@ -1,7 +1,11 @@
 """Unit tests for line counting, complexity, and reporting builders."""
 from types import SimpleNamespace
 
-from app.analysis.filereader import _count_python
+from app.analysis.filereader import (
+    RADON_MAX_LINES,
+    _count_python,
+    _too_large_for_radon,
+)
 from app.analysis.languages import count_lines_generic
 from app.reporting import (
     build_complexity_payload,
@@ -28,6 +32,19 @@ def test_python_line_counts():
     assert counts.blank >= 2
     assert counts.comment >= 1
     assert counts.total == len(src.splitlines())
+
+
+def test_radon_guard_falls_back_on_huge_files():
+    # A file above the line cap must NOT be sent to radon (which can hang on
+    # very large inputs) and must still return sane counts via the fallback.
+    big = "\n".join("# comment line" for _ in range(RADON_MAX_LINES + 50))
+    assert _too_large_for_radon(big) is True
+    counts = _count_python(big)  # must return fast via fallback, not hang
+    assert counts.total == RADON_MAX_LINES + 50
+    assert counts.comment == RADON_MAX_LINES + 50  # every line starts with '#'
+    # Normal-sized file goes through radon and is not flagged.
+    small = "def f():\n    return 1\n"
+    assert _too_large_for_radon(small) is False
 
 
 def test_generic_line_counts_js():

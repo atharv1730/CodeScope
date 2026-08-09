@@ -17,6 +17,13 @@ from app.analysis.languages import LineCounts, count_lines_generic, detect_langu
 # vendored blobs). Size in bytes.
 MAX_FILE_BYTES = 2 * 1024 * 1024  # 2 MB
 
+# radon's tokenizer is superlinear and can effectively hang on very large
+# source files (e.g. huge generated/parametrized test files). Above either of
+# these bounds we skip radon and use the plain O(n) counter instead. These
+# limits comfortably exceed normal hand-written source files.
+RADON_MAX_BYTES = 100_000
+RADON_MAX_LINES = 2500
+
 
 @dataclass
 class FileCount:
@@ -66,7 +73,14 @@ def count_file(abs_path: str, rel_path: str) -> FileCount | None:
     return FileCount(language=language, counts=counts)
 
 
+def _too_large_for_radon(text: str) -> bool:
+    return len(text) > RADON_MAX_BYTES or text.count("\n") + 1 > RADON_MAX_LINES
+
+
 def _count_python(text: str) -> LineCounts:
+    # Guard against files that make radon's tokenizer hang.
+    if _too_large_for_radon(text):
+        return count_lines_generic(text, "Shell")  # '#' comment style
     try:
         raw = radon_raw_analyze(text)
         # radon: sloc = source lines of code, comments = single-line comments,
