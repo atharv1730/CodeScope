@@ -10,6 +10,8 @@ import logging
 from datetime import datetime, timezone
 
 from app.analysis.clone import CloneError, cleanup_clone, clone_repo
+from app.analysis.complexity import analyze_complexity
+from app.analysis.structure import analyze_structure
 from app.celery_app import celery_app
 from app.database import SessionLocal
 from app.models import Analysis, AnalysisStatus
@@ -50,15 +52,27 @@ def run_analysis(self, analysis_id: str) -> str:
         _set_status(analysis_id, AnalysisStatus.cloning)
         clone_path = clone_repo(clone_url, analysis_id)
 
-        # --- Analysis passes land here in later days ---
-        # analyze_structure(analysis_id, clone_path)      # Day 2
-        # analyze_git(analysis_id, clone_path)            # Day 3
-        # analyze_complexity(analysis_id, clone_path)     # Day 2/3
-        # analyze_dependencies(analysis_id, clone_path)   # Day 4
-        # -----------------------------------------------
+        # --- Structure pass (Day 2) ---
+        _set_status(analysis_id, AnalysisStatus.analyzing_structure)
+        with SessionLocal() as db:
+            analysis = db.get(Analysis, analysis_id)
+            file_count = analyze_structure(db, analysis, clone_path)
+        logger.info("Analysis %s: recorded %d files", analysis_id, file_count)
+
+        # --- Git pass (Day 3) plugs in here ---
+        # analyze_git(...)  -> AnalysisStatus.analyzing_git
+
+        # --- Complexity pass (Day 2) ---
+        _set_status(analysis_id, AnalysisStatus.analyzing_complexity)
+        with SessionLocal() as db:
+            analysis = db.get(Analysis, analysis_id)
+            scored = analyze_complexity(db, analysis, clone_path)
+        logger.info("Analysis %s: scored %d Python files", analysis_id, scored)
+
+        # --- Dependencies pass (Day 4) plugs in here ---
 
         _set_status(analysis_id, AnalysisStatus.complete)
-        logger.info("Analysis %s cloned successfully to %s", analysis_id, clone_path)
+        logger.info("Analysis %s complete", analysis_id)
     except CloneError as exc:
         logger.warning("Clone failed for %s: %s", analysis_id, exc)
         _set_status(analysis_id, AnalysisStatus.failed, error=str(exc))

@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import Analysis, AnalysisStatus
+from app.models import Analysis, AnalysisStatus, FileMetric
+from app.reporting import build_complexity_payload, build_structure_payload
 from app.schemas import AnalysisSummary, AnalyzeRequest, AnalyzeResponse, StatusResponse
 from app.tasks import run_analysis
 from app.utils import InvalidRepoURL, progress_for, validate_github_url
@@ -92,3 +93,20 @@ def get_status(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> StatusR
         error=analysis.error,
         progress=progress_for(analysis.status),
     )
+
+
+def _file_metrics(db: Session, analysis_id: uuid.UUID) -> list[FileMetric]:
+    stmt = select(FileMetric).where(FileMetric.analysis_id == analysis_id)
+    return list(db.scalars(stmt).all())
+
+
+@router.get("/analyses/{analysis_id}/structure")
+def get_structure(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    _get_or_404(db, analysis_id)
+    return build_structure_payload(_file_metrics(db, analysis_id))
+
+
+@router.get("/analyses/{analysis_id}/complexity")
+def get_complexity(analysis_id: uuid.UUID, db: Session = Depends(get_db)) -> dict:
+    _get_or_404(db, analysis_id)
+    return build_complexity_payload(_file_metrics(db, analysis_id))
