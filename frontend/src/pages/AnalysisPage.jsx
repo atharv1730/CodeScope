@@ -8,13 +8,17 @@ import ComplexityTab from "../tabs/ComplexityTab";
 import ContributorsTab from "../tabs/ContributorsTab";
 import HotspotsTab from "../tabs/HotspotsTab";
 import DependenciesTab from "../tabs/DependenciesTab";
+import TreemapTab from "../tabs/TreemapTab";
+import GraphTab from "../tabs/GraphTab";
 
 const TABS = [
   ["overview", "Overview", OverviewTab],
+  ["treemap", "Treemap", TreemapTab],
   ["complexity", "Complexity", ComplexityTab],
   ["contributors", "Contributors", ContributorsTab],
   ["hotspots", "Hotspots", HotspotsTab],
   ["dependencies", "Dependencies", DependenciesTab],
+  ["graph", "Graph", GraphTab],
 ];
 
 export default function AnalysisPage() {
